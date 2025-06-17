@@ -1,6 +1,6 @@
 from dynamixel_sdk import *
 
-DXL_ID = 4
+DXL_ID = 2
 BAUDRATE = 1000000
 DEVICENAME = 'COM6'
 

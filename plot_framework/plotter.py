@@ -1,7 +1,8 @@
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+import numpy as np
+
 def animate(states, dt, xlim=None, ylim=None):
-    import matplotlib.pyplot as plt
-    from matplotlib.animation import FuncAnimation
-    import numpy as np
 
     fig, axs = plt.subplots(1, 3, figsize=(12, 4))
     time = np.linspace(0, dt * len(states), len(states))

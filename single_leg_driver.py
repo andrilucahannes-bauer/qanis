@@ -40,6 +40,23 @@ def circular_trajectory(cx, cy, radius, angular_speed, t):
     y = cy + radius * np.sin(theta)
     return x, y
 
+def gait_trajectory(x_fore, x_hind, z_top, z_btm, phi):
+    x_off = 0.0
+    z_off = 14.0
+
+    x = np.where(
+        (phi > np.pi / 2) & (phi <= 3 * np.pi / 2),
+        x_off - x_fore * np.cos(phi),
+        x_off - x_hind * np.cos(phi)
+    )
+
+    z = np.where(
+        (phi > 0) & (phi <= np.pi),
+        z_off + z_top * np.sin(phi),
+        z_off + z_btm * np.sin(phi)
+    )
+    return x, z
+
 def plot_arm_position(x, y, theta1, theta2):
     theta1_rad = np.radians(theta1)
     theta2_rad = np.radians(theta2)
@@ -105,7 +122,7 @@ class Orchestrator:
         self.print_result(read_result, read_error, f"Position {dxl_id}: {pos}")
 
     def move_motor(self, dxl_id, goal_position):
-        print(f'id: {dxl_id}, goal position: {goal_position}')
+        #print(f'id: {dxl_id}, goal position: {goal_position}')
         write_result, write_error = self.packet_handler.write2ByteTxRx(
             self.port_handler, dxl_id, ADDR_GOAL_POSITION, goal_position)
 
@@ -126,7 +143,7 @@ class Orchestrator:
 
     def move_to_pos(self, x, y):
         upper_angle, lower_angle = ik(x, y, UPPER_LENGTH, LOWER_LENGTH)
-        # print(f'Upper angle: {upper_angle}, Lower angle: {lower_angle}')
+        print(f'Upper angle: {upper_angle}, Lower angle: {lower_angle}')
         upper_dxl_angle = 818 - self.calc_angle_to_dxl(upper_angle)
         lower_dxl_angle = 1123 - self.calc_angle_to_dxl(lower_angle)
         print(f'Upper dxl angle: {upper_dxl_angle}, Lower dxl angle: {lower_dxl_angle}')
@@ -152,6 +169,20 @@ class Orchestrator:
             time.sleep(0.01)
             #else:
              #   print("Out of range")
+
+    def move_gait(self, _ticks, x_fore, x_hind, z_top, z_btm):
+        phi = np.linspace(0, 2 * np.pi, _ticks)
+        positions = [gait_trajectory(x_fore, x_hind, z_top, z_btm, phi_i) for phi_i in phi]
+        pos_5_rounds = positions * 5
+
+        for p in pos_5_rounds:
+            upper_angle, lower_angle = ik(p[0], p[1], UPPER_LENGTH, LOWER_LENGTH)
+            upper_dxl_angle = 818 - self.calc_angle_to_dxl(upper_angle)
+            lower_dxl_angle = 1123 - self.calc_angle_to_dxl(lower_angle)
+            #if self.check_valid_goal_positions(upper_dxl_angle, lower_dxl_angle):
+            self.move_motor(DXL_ID_UPPER, upper_dxl_angle)
+            self.move_motor(DXL_ID_LOWER, lower_dxl_angle)
+            time.sleep(0.02)
 
 
 if __name__ == '__main__':
@@ -195,6 +226,13 @@ if __name__ == '__main__':
                 d = 3
                 ticks = 500
                 orchestrator.move_in_circle(0, 16, r, -v, d, ticks)
+
+            elif user_input == '9':
+                orchestrator.move_to_pos(0,14)
+                time.sleep(2)
+                # 36 good tick rate (10° per tick)
+                ticks = 72
+                orchestrator.move_gait(ticks, 5, 5, 3, 0.5)
 
             elif user_input == 'x':
                 print("🚪 Beenden...")

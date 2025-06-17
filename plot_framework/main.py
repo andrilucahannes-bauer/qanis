@@ -10,6 +10,6 @@ def run_simulation(system, steps=1000):
     return np.array(states)
 
 if __name__ == "__main__":
-    osc = HopfOscillator(alpha=1.0, mu=1.0, omega=2.0, initial_state=[1.0, 0.0])
+    osc = HopfOscillator(alpha=2.0, mu=1.0, omega=2.0, initial_state=[1.0, 0.0])
     states = run_simulation(osc, steps=1000)
     animate(states, dt=osc.dt, xlim=(-2, 2), ylim=(-2, 2))
