@@ -33,13 +33,37 @@ def calculate_4_bar(th2, a, b, c, d):
     return ABC, BCD, CDA
 
 
-def lower_leg_angle_to_servo_angle(th2, c_e_offset, a, b, c, d, e, f, g, h):
+def lower_leg_angle_to_servo_angle(th1, th2, leg): #c_e_offset, motor_angle, a, b, c, d, e, f, g, h):
 
-    ABC, BCD, CDA = calculate_4_bar(th2, a, b, c, d)
-    DEF, EFG, FGD = calculate_4_bar(CDA + c_e_offset, e, f, g, h)
+    # calculate first 4-bar linkage
+    ABC, BCD, CDA = calculate_4_bar(th2, leg.a, leg.b, leg.c, leg.upper_length)
 
-    print(f'ABC: {ABC}, BCD: {BCD}, CDA: {CDA}')
-    print(f'DEF: {DEF}, EFG: {EFG}, FGD: {FGD}')
+    # calculate angle between upper leg and motor axis (triangle ADG 180° - (upper_leg to horizontal + motor_angle to horizontal))
+    upper_leg_to_motor_angle = np.pi - (th1 + leg.motor_angle)
 
-    # test for max angle
+    # calculate angle GDE for second 4-bar linkage, full circle - all other angles
+    th2_new = 2*np.pi -  (CDA + leg.c_e_offset + upper_leg_to_motor_angle)
+
+    # calculate second 4-bar linkage
+    DEF, EFG, FGD = calculate_4_bar(th2_new, leg.e, leg.f, leg.g, leg.h)
+
+    # check if angles are within bounds
+    if ABC > leg.ABC_max or ABC < leg.ABC_min:
+        raise ValueError(f"ABC angle {ABC} out of bounds: [{leg.ABC_min}, {leg.ABC_max}]")
+    if EFG > leg.EFG_max or EFG < leg.EFG_min:
+        raise ValueError(f"EFG angle {EFG} out of bounds: [{leg.EFG_min}, {leg.EFG_max}]")
+    
     return FGD
+
+
+# debugging purposes
+def servo_angle_to_lower_leg_angle(th1, th2, leg):
+
+    DEF, EFG, FGD = calculate_4_bar(th2, leg.e, leg.f, leg.g, leg.h)
+
+    upper_leg_to_motor_angle = np.pi - (th1 + leg.motor_angle)
+    th2_new = 2*np.pi -  (FGD + leg.c_e_offset + upper_leg_to_motor_angle)
+
+    ABC, BCD, CDA = calculate_4_bar(th2_new, leg.a, leg.b, leg.c, leg.upper_length)
+
+    return CDA

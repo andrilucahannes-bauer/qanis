@@ -22,14 +22,22 @@ class MotorHandler:
         print("✅ Baudrate gesetzt")
 
     def move_motor(self, dxl_id, goal_position):
-        # print(f'id: {dxl_id}, goal position: {goal_position}')
         write_result, write_error = self.packet_handler.write2ByteTxRx(
             self.port_handler, dxl_id, self.ADDR_GOAL_POSITION, goal_position)
 
     def move_to_default_position(self, leg):
-        upper_dxl_angle = leg.upper_dxl_offset
-        lower_dxl_angle = leg.lower_dxl_offset
-        inner_dxl_angle = leg.inner_offset
+        upper_dxl_angle = leg.default_pos[0]
+        lower_dxl_angle = leg.default_pos[1]
+        inner_dxl_angle = leg.default_pos[2]
+
+        self.move_motor(leg.upper_id, upper_dxl_angle)
+        self.move_motor(leg.lower_id, lower_dxl_angle)
+        self.move_motor(leg.inner_id, inner_dxl_angle)
+
+    def move_to_max_stand_position(self, leg):
+        upper_dxl_angle = leg.max_stand[0]
+        lower_dxl_angle = leg.max_stand[1]
+        inner_dxl_angle = leg.max_stand[2]
 
         self.move_motor(leg.upper_id, upper_dxl_angle)
         self.move_motor(leg.lower_id, lower_dxl_angle)
