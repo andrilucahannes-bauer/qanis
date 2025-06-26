@@ -13,10 +13,14 @@ def _ik(x, y, upper, lower):
 
     return theta1, theta2
 
-def transform_point_to_angles(foot_position, leg):
+def transform_position_to_angles(foot_position, leg):
     x,y,z = foot_position
     r = np.hypot(x, y)
 
+    # does this work if y is not 0?
+    r = r if x >= 0 else -r
+
     theta0 = np.arctan2(y, x)
     theta1, theta2 = _ik(r, z, leg.upper_length, leg.lower_length)
+
     return theta0, theta1, theta2

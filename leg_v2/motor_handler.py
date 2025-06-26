@@ -21,27 +21,14 @@ class MotorHandler:
             exit()
         print("✅ Baudrate gesetzt")
 
+
     def move_motor(self, dxl_id, goal_position):
         write_result, write_error = self.packet_handler.write2ByteTxRx(
             self.port_handler, dxl_id, self.ADDR_GOAL_POSITION, goal_position)
 
+
     def move_to_default_position(self, leg):
-        upper_dxl_angle = leg.default_pos[0]
-        lower_dxl_angle = leg.default_pos[1]
-        inner_dxl_angle = leg.default_pos[2]
-
-        self.move_motor(leg.upper_id, upper_dxl_angle)
-        self.move_motor(leg.lower_id, lower_dxl_angle)
-        self.move_motor(leg.inner_id, inner_dxl_angle)
-
-    def move_to_max_stand_position(self, leg):
-        upper_dxl_angle = leg.max_stand[0]
-        lower_dxl_angle = leg.max_stand[1]
-        inner_dxl_angle = leg.max_stand[2]
-
-        self.move_motor(leg.upper_id, upper_dxl_angle)
-        self.move_motor(leg.lower_id, lower_dxl_angle)
-        self.move_motor(leg.inner_id, inner_dxl_angle)
+        pass
 
 
     def set_speed(self, dxl_id, goal_speed):
@@ -55,6 +42,7 @@ class MotorHandler:
         else:
             print(f"✅ success: speed set to {goal_speed}")
 
+
     def set_torque(self, dxl_id, torque_state):
         dxl_comm_result, dxl_error = self.packet_handler.write1ByteTxRx(self.port_handler, dxl_id, self.ADDR_TORQUE_ENABLE, torque_state)
         if dxl_comm_result != COMM_SUCCESS:
@@ -66,14 +54,16 @@ class MotorHandler:
         else:
             print(f"✅ success: Torque set to {torque_state}")
 
+
     def clean_up(self, dxl_list):
         for dxl in dxl_list:
             self.set_torque(dxl, 0)
         self.port_handler.closePort()
         print("✅ clean up successful")
 
+
     def read_max_torque(self, dxl_id):
-        dxl_present_max_torque, dxl_comm_result, dxl_error = self.packet_handler.read2ByteTxRx(self.port_handler, dxl_id, 34)
+        dxl_present_max_torque, dxl_comm_result, dxl_error = self.packet_handler.read2ByteTxRx(self.port_handler, dxl_id, 14)
 
         if dxl_comm_result != COMM_SUCCESS:
             print("Communication error:", self.packet_handler.getTxRxResult(dxl_comm_result))
@@ -81,6 +71,7 @@ class MotorHandler:
             print("Dynamixel error:", self.packet_handler.getRxPacketError(dxl_error))
         else:
             print(f"Max Torque value: {dxl_present_max_torque} ({dxl_present_max_torque / 1023:.1%})")
+
 
     def read_current_load(self, dxl_id):
         dxl_present_load, dxl_comm_result, dxl_error = self.packet_handler.read2ByteTxRx(self.port_handler, dxl_id, self.ADDR_PRESENT_LOAD)
@@ -94,30 +85,3 @@ class MotorHandler:
             load_raw = dxl_present_load & 0x3FF
             load_percent = (load_raw / 1023) * 100
             print(f"Load: {load_percent:.1f}% in {direction} direction")
-    
-    def set_torque_limits(self, dxl_id, percent=100):
-        # Clamp percentage between 0 and 100
-        percent = max(0, min(100, percent))
-        
-        # Convert percent to 10-bit value (0–1023)
-        torque_value = int(1023 * (percent / 100.0))
-
-        # Write Max Torque (address 14)
-        dxl_comm_result, dxl_error = self.packet_handler.write2ByteTxRx(
-            self.port_handler, dxl_id, 14, torque_value
-        )
-        if dxl_comm_result != COMM_SUCCESS:
-            print("Error writing Max Torque:", self.packet_handler.getTxRxResult(dxl_comm_result))
-        elif dxl_error != 0:
-            print("Dynamixel error (Max Torque):", self.packet_handler.getRxPacketError(dxl_error))
-
-        # Write Torque Limit (address 34)
-        dxl_comm_result, dxl_error = self.packet_handler.write2ByteTxRx(
-            self.port_handler, dxl_id, 34, torque_value
-        )
-        if dxl_comm_result != COMM_SUCCESS:
-            print("Error writing Torque Limit:", self.packet_handler.getTxRxResult(dxl_comm_result))
-        elif dxl_error != 0:
-            print("Dynamixel error (Torque Limit):", self.packet_handler.getRxPacketError(dxl_error))
-        else:
-            print(f"Set Max Torque and Torque Limit to {torque_value} ({percent:.1f}%)")

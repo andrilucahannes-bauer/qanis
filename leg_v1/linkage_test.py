@@ -1,7 +1,7 @@
 from calculate_linkage_angles import lower_leg_angle_to_servo_angle
 from calculate_servo_angles import calc_left_upper_angle_to_dxl, calc_left_lower_angle_to_dxl
 from config import Config
-from inverse_kinematics import ik
+from inverse_kinematics import _ik
 
 def main():
     config = Config()
@@ -10,7 +10,7 @@ def main():
     point_to_left_motor_angle(leg, p[0], p[1])
 
 def point_to_left_motor_angle(leg, x, z):
-    upper_servo_angle, lower_leg_angle = ik(x, z, leg.upper_length, leg.lower_length)
+    upper_servo_angle, lower_leg_angle = _ik(x, z, leg.upper_length, leg.lower_length)
     lower_servo_angle = lower_leg_angle_to_servo_angle(
             upper_servo_angle,
             lower_leg_angle,
