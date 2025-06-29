@@ -1,8 +1,8 @@
 from dynamixel_sdk import *
 
-DXL_ID = 10
+DXL_ID = 11
 BAUDRATE = 1000000
-DEVICENAME = 'COM6'
+DEVICENAME = 'COM7'
 
 ADDR_PRESENT_POSITION = 36
 

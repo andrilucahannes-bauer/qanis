@@ -21,6 +21,7 @@ def transform_position_to_angles(foot_position, leg):
     r = r if x >= 0 else -r
 
     theta0 = np.arctan2(y, x)
+    
     theta1, theta2 = _ik(r, z, leg.upper_length, leg.lower_length)
 
     return theta0, theta1, theta2

@@ -39,7 +39,7 @@ def walk(
         #     pos_multiple_circles_0, pos_multiple_circles_1
         # ):
         #     for leg in config.legs:
-        #         if leg.leg_index == 1 or leg.leg_index == 4:
+        #         if leg.leg_index == 0 or leg.leg_index == 3:
         #             upper_servo_angle, lower_leg_angle = _ik(
         #                 x_0, z_0, leg.upper_length, leg.lower_length
         #             )
@@ -53,7 +53,7 @@ def walk(
         #             lower_servo_angle = lower_leg_angle_to_servo_angle(
         #                 upper_servo_angle, lower_leg_angle, leg
         #             )
-        #         if leg.leg_index % 2 == 0:
+        #         if leg.leg_index % 2 != 0:
         #             upper_dxl_angle = calc_right_upper_angle_to_dxl(
         #                 leg, upper_servo_angle
         #             )
@@ -67,7 +67,7 @@ def walk(
         #             lower_dxl_angle = calc_left_lower_angle_to_dxl(
         #                 leg, lower_servo_angle
         #             )
-        #         if leg.leg_index == 1:
+        #         if leg.leg_index == 0:
         #             print(f"x: {x_0}, z: {z_0}")
         #             print(f"upper: {upper_dxl_angle}, lower: {lower_dxl_angle}")
         #         motor_handler.move_motor(leg.upper_id, upper_dxl_angle)

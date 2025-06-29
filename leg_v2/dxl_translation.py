@@ -15,11 +15,19 @@ def calc_right_upper_angle_to_dxl(leg, angle_rad):
 
 def calc_left_lower_angle_to_dxl(leg, angle_rad):
     dxl_angle = _calc_angle_to_dxl(angle_rad)
-    return leg.dxl_starting_position_offset + leg.lower_leg_angle_offset + dxl_angle
+    return leg.dxl_starting_position_offset + dxl_angle + leg.left_lower_leg_angle_offset
 
 def calc_right_lower_angle_to_dxl(leg, angle_rad):
     dxl_angle = _calc_angle_to_dxl(angle_rad)
-    return 1023 - (leg.dxl_starting_position_offset + dxl_angle) + leg.lower_leg_angle_offset
+    return 1023 - (leg.dxl_starting_position_offset + dxl_angle) + leg.right_lower_leg_angle_offset
+
+def calc_lf_rh_inner_angle_to_dxl(leg, angle_rad):
+    dxl_angle = _calc_angle_to_dxl(angle_rad)
+    return leg.horizontal_inner + dxl_angle
+
+def calc_rf_lh_inner_angle_to_dxl(leg, angle_rad):
+    dxl_angle = _calc_angle_to_dxl(angle_rad)
+    return leg.horizontal_inner - dxl_angle
 
 
 # dxl to angle: (left working, right not tested yet)

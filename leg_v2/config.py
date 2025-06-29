@@ -8,7 +8,9 @@ class MovementType(Enum):
 
 
 class TrajectoryType(Enum):
+    NO_TRAJECTORY = ("no_trajectory",)
     LINEAR = ("linear",)
+    WALK = ("walk",)
     TROT = ("trot",)
 
 class LegSide(Enum):
@@ -24,7 +26,7 @@ class Config:
     def __init__(self):
 
         self.leg_lf = LegDimensions(
-            leg_index=1,
+            leg_index=0,
             name="left_front",
             side=LegSide.LEFT,
             orientation=LegOrientation.FRONT,
@@ -34,7 +36,7 @@ class Config:
             horizontal_inner=203,
         )
         self.leg_rf = LegDimensions(
-            leg_index=2,
+            leg_index=1,
             name="right_front",
             side=LegSide.RIGHT,
             orientation=LegOrientation.FRONT,
@@ -44,7 +46,7 @@ class Config:
             horizontal_inner=193,
         )
         self.leg_lh = LegDimensions(
-            leg_index=3,
+            leg_index=2,
             name="left_hind",
             side=LegSide.LEFT,
             orientation=LegOrientation.HIND,
@@ -54,7 +56,7 @@ class Config:
             horizontal_inner=408,
         )
         self.leg_rh = LegDimensions(
-            leg_index=4,
+            leg_index=3,
             name="right_hind",
             side=LegSide.RIGHT,
             orientation=LegOrientation.HIND,
@@ -66,10 +68,11 @@ class Config:
 
         self.legs = [self.leg_lf, self.leg_rf, self.leg_lh, self.leg_rh]
 
-        self.default_motor_speed = 20
+        self.default_motor_speed = 200
 
         self.gait_config = GaitConfig()
-        self.sleep_time = {MovementType.GAIT: 0.02, MovementType.BALANCE: 0.1}
+        self.sleep_time = {MovementType.GAIT: 0, MovementType.BALANCE: 0.01}
+        self.balance_config = BalanceConfig()
 
 
 class LegDimensions:
@@ -95,19 +98,23 @@ class LegDimensions:
         # temp
         self.horizontal_inner = horizontal_inner  # for now till inner servo is used
 
-        self.horizontal_position_servo = (
+        self.horizontal_position_right_servo = (
             555  # horizontal position of servo horn in dxl steps
         )
+        self.horizontal_position_left_servo = (
+            662  # horizontal position of servo horn in dxl steps
+        )
         self.horizontal_position_upper_left = (
-            538  # horizontal position of upper leg in dxl steps
+            558  # horizontal position of upper leg in dxl steps
         )
         self.horizontal_position_upper_right = (
-            484  # horizontal position of upper leg in dxl steps
+            463  # horizontal position of upper leg in dxl steps
         )
         self.dxl_starting_position_offset = (
             71  # 20.7° (50.7° motor angle - 30° dxl starting angle)
         )
-        self.lower_leg_angle_offset = 43  # 555 (our horizontal) - 512 (dxl horizontal)
+        self.left_lower_leg_angle_offset = 150  # 662 (our horizontal) - 512 (dxl horizontal)
+        self.right_lower_leg_angle_offset = 43  # 555 (our horizontal) - 512 (dxl horizontal)
         self.ABC_max = 2.13  # 122°
         self.ABC_min = 0.77  # 44°
         self.EFG_max = 2.77  # 159° changed from 2.77
@@ -116,13 +123,13 @@ class LegDimensions:
         self.motor_angle = 0.885  # 50.7°, angle between horizontal and the axis on which the servos are aligned
         self.c_e_offset = 1.745  # 100°, bell crank angle
 
-        self.upper_length = 13
-        self.lower_length = 13
-        self.a = 3.5
-        self.b = 14.0
+        self.upper_length = 10
+        self.lower_length = 10
+        self.a = 4.0
+        self.b = 10.0
         self.c = 4.5
         self.e = 4.5
-        self.f = 4.5
+        self.f = 4
         self.g = 3.5
         self.h = 4.264
 
@@ -130,25 +137,35 @@ class LegDimensions:
 class GaitConfig:
     def __init__(self):
         self.x_off = 0.0
-        self.z_off = 17.0
+        self.z_off = 16.0
         self.x_fore = 2.0
         self.x_hind = 2.0
-        self.z_top = 1
-        self.z_btm = 3
+        self.z_top = 2
+        self.z_btm = 1
+        self.x_off_front = 0.0
+        self.x_off_hind = 1.0
 
         # distance for linear motion
-        self.distance = 5.0
+        self.distance = 0.0
 
-        # phase offset for trot gait
-        self.phase_offset = np.pi / 2
 
-        # Number of ticks for trajectory generation. NOTE LINEAR must be even
-        self.total_ticks = {TrajectoryType.TROT: 20, TrajectoryType.LINEAR: 10}
+
+        # Number of ticks for trajectory generation. NOTE LINEAR must be even, WALK must be divisible by 4
+        self.total_ticks = {TrajectoryType.WALK: 16, TrajectoryType.LINEAR: 2}
+
+        self.ticks_stance = int(self.total_ticks[TrajectoryType.WALK] * (6/8))
+        self.ticks_swing = int(self.total_ticks[TrajectoryType.WALK] *  (2/8))
+        self.ticks_linear = int(self.total_ticks[TrajectoryType.LINEAR])
+
+        # phase offset for walk gait
+        self.phase_offset = int(self.total_ticks[TrajectoryType.WALK] *  (1/4))
+        self.leg_movement_order = [1,3,0,2]  # Order of leg movements in the gait cycle (0-indexed)
 
         self.current_tick = 0
 
         self.leg_positions = np.zeros((3, 4))
 
+        # leg order = config.legs
         self.default_position = np.array(
             [
                 [0, 0, 0, 0],                                       # x
@@ -160,10 +177,38 @@ class GaitConfig:
     def get_default_gait_params(self):
         return {
             "x_off": self.x_off,
+            "x_off_front": self.x_off_front,
+            "x_off_hind": self.x_off_hind,
             "z_off": self.z_off,
             "x_fore": self.x_fore,
             "x_hind": self.x_hind,
             "z_top": self.z_top,
             "z_btm": self.z_btm,
             "distance": self.distance,
+            "linear_ticks": self.ticks_linear,
+            "ticks_stance": self.ticks_stance,
+            "ticks_swing": self.ticks_swing,
         }
+
+class BalanceConfig:
+    def __init__(self):
+        self.x_off = 0.0
+        self.z_off = 17.0
+        self.x_off_front = 0.0
+        self.x_off_hind = 3.0
+
+        self.correction_factor = 0.8
+        self.max_tilt = 0.4
+        self.offset_matrix = np.array([
+            [9.5,   9.5,    -12.3,  -12.3],     # x offsets
+            [12.2,  -12.2,  12.2,   -12.2],     # y offsets
+            [0,     0,      0,      0]          # z offsets
+        ])
+
+        self.default_position = np.array(
+            [
+                [0, 0, 0, 0],                                       # x
+                [0, 0, 0, 0],                                       # y
+                [self.z_off, self.z_off, self.z_off, self.z_off],   # z
+            ]
+        )

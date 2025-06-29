@@ -4,10 +4,10 @@ import numpy as np
 class Config:
     def __init__(self):
 
-        self.leg_lf = LegDimensions(leg_index=1, side="left", orientation="front", name="left_front", upper_id=1, lower_id=2, inner_id=3, horizontal_inner=203)
-        self.leg_rf = LegDimensions(leg_index=2, side="right", orientation="front", name="right_front", upper_id=4, lower_id=5, inner_id=6, horizontal_inner=193)
-        self.leg_lh = LegDimensions(leg_index=3, side="left", orientation="hind", name="left_hind", upper_id=7, lower_id=8, inner_id=9, horizontal_inner=408)
-        self.leg_rh = LegDimensions(leg_index=4, side="right", orientation="hind", name="right_hind", upper_id=10, lower_id=11, inner_id=12, horizontal_inner=311)
+        self.leg_lf = LegDimensions(leg_index=0, side="left", orientation="front", name="left_front", upper_id=1, lower_id=2, inner_id=3, horizontal_inner=203)
+        self.leg_rf = LegDimensions(leg_index=1, side="right", orientation="front", name="right_front", upper_id=4, lower_id=5, inner_id=6, horizontal_inner=193)
+        self.leg_lh = LegDimensions(leg_index=2, side="left", orientation="hind", name="left_hind", upper_id=7, lower_id=8, inner_id=9, horizontal_inner=408)
+        self.leg_rh = LegDimensions(leg_index=3, side="right", orientation="hind", name="right_hind", upper_id=10, lower_id=11, inner_id=12, horizontal_inner=311)
 
         self.legs = [self.leg_lf, self.leg_rf, self.leg_lh, self.leg_rh]
 

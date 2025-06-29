@@ -1,30 +1,34 @@
 from motor_handler import MotorHandler
 from imu_controller import IMUController
 from config import Config, TrajectoryType, MovementType
-from trajectory_controller import TrajectoryController
-from controller import Controller, GaitController
+from trajectory_controller import WalkTrajectoryController, LinearTrajectoryController
+from controller import Controller, GaitController, BalanceController
 import time
 
 
 def main():
-    mh = MotorHandler("COM7", 1000000, 1.0)
-    #imu_controller = IMUController()
-    imu_controller = None  # Placeholder for IMUController, if needed
+    #mh = MotorHandler("/dev/ttyUSB0", 1000000, 1.0)
+    mh = MotorHandler("COM7", 1000000, 1.0)  # Adjust for your platform
+    #imu_controller = IMUController(sample_freq=100.0, beta=0.1)
+    imu_controller = None
     config = Config()
 
     # TODO change from hardcoded to params
-    trajectory_type = TrajectoryType.TROT
+    # change to args so that i dont need it with balance
+    trajectory_type = TrajectoryType.LINEAR
     movement_type = MovementType.GAIT
 
-    total_ticks = config.gait_config.total_ticks[trajectory_type]
     sleep_time = config.sleep_time[movement_type]
 
-    trajectory_controller = TrajectoryController(
-        trajectory_type, total_ticks, config.gait_config.get_default_gait_params()
-    )
+    if not trajectory_type == TrajectoryType.NO_TRAJECTORY:
+        trajectory_controller = LinearTrajectoryController(
+            trajectory_type, config.gait_config.get_default_gait_params()
+        )
     gait_controller = GaitController(trajectory_controller, mh, imu_controller, config)
-
     gait_controller.initial_setup()
+
+    #balance_controller = BalanceController(imu_controller, mh, config)
+    #balance_controller.initial_setup()
 
     try:
         while True:
