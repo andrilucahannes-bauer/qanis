@@ -10,6 +10,10 @@ class MotorHandler:
         self.ADDR_MOVING_SPEED = 32
         self.ADDR_CURRENT_POSITION = 36
         self.ADDR_PRESENT_LOAD = 40
+        self.CW_COMPLIANCE_MARGIN = 26
+        self.CCW_COMPLIANCE_MARGIN = 27
+        self.CW_COMPLIANCE_SLOPE = 28
+        self.CCW_COMPLIANCE_SLOPE = 29
 
         if not self.port_handler.openPort():
             print("❌ Port konnte nicht geöffnet werden.")
@@ -85,3 +89,46 @@ class MotorHandler:
             load_raw = dxl_present_load & 0x3FF
             load_percent = (load_raw / 1023) * 100
             print(f"Load: {load_percent:.1f}% in {direction} direction")
+
+
+    def set_margin(self, dxl_id, value):
+        # Set CW compliance margin
+        dxl_comm_result, dxl_error = self.packet_handler.write1ByteTxRx(self.port_handler, dxl_id, self.CW_COMPLIANCE_MARGIN, value)
+        if dxl_comm_result != COMM_SUCCESS:
+            print(f"❌ CW margin write failed: {self.packet_handler.getTxRxResult(dxl_comm_result)}")
+            exit()
+        elif dxl_error != 0:
+            print(f"❌ CW margin error: {self.packet_handler.getRxPacketError(dxl_error)}")
+            exit()
+
+        # Set CCW compliance margin
+        dxl_comm_result, dxl_error = self.packet_handler.write1ByteTxRx(self.port_handler, dxl_id, self.CCW_COMPLIANCE_MARGIN, value)
+        if dxl_comm_result != COMM_SUCCESS:
+            print(f"❌ CCW margin write failed: {self.packet_handler.getTxRxResult(dxl_comm_result)}")
+            exit()
+        elif dxl_error != 0:
+            print(f"❌ CCW margin error: {self.packet_handler.getRxPacketError(dxl_error)}")
+            exit()
+
+        print(f"✅ success: margin set to {value} (CW & CCW) for ID {dxl_id}")
+
+    def set_slope(self, dxl_id, value):
+        # Set CW compliance slope
+        dxl_comm_result, dxl_error = self.packet_handler.write1ByteTxRx(self.port_handler, dxl_id, self.CW_COMPLIANCE_SLOPE, value)
+        if dxl_comm_result != COMM_SUCCESS:
+            print(f"❌ CW slope write failed: {self.packet_handler.getTxRxResult(dxl_comm_result)}")
+            exit()
+        elif dxl_error != 0:
+            print(f"❌ CW slope error: {self.packet_handler.getRxPacketError(dxl_error)}")
+            exit()
+
+        # Set CCW compliance slope
+        dxl_comm_result, dxl_error = self.packet_handler.write1ByteTxRx(self.port_handler, dxl_id, self.CCW_COMPLIANCE_SLOPE, value)
+        if dxl_comm_result != COMM_SUCCESS:
+            print(f"❌ CCW slope write failed: {self.packet_handler.getTxRxResult(dxl_comm_result)}")
+            exit()
+        elif dxl_error != 0:
+            print(f"❌ CCW slope error: {self.packet_handler.getRxPacketError(dxl_error)}")
+            exit()
+
+        print(f"✅ success: slope set to {value} (CW & CCW) for ID {dxl_id}")

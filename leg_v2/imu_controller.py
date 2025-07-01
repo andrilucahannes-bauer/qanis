@@ -36,4 +36,6 @@ class IMUController:
         pitch = np.asin( max(-1, min(1, 2*(qw*qy - qz*qx))) )
         yaw   = np.atan2(2*(qw*qz + qx*qy), 1 - 2*(qy*qy + qz*qz))
 
+        #print(f"roll: {np.rad2deg(roll)}, pitch: {np.rad2deg(pitch)}")
+
         return (roll, pitch, yaw)

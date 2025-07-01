@@ -29,6 +29,7 @@ class WalkTrajectoryController:
                 x, y, z = self.trajectory[
                     (index + (i * phase_offset)) % len(self.trajectory)
                 ]
+                # TODO change to individual leg
                 leg_orientation_x_offset = (
                     kwargs.get("x_off_front", 0)
                     if leg_index < 2
@@ -48,6 +49,7 @@ class WalkTrajectoryController:
             ticks_swing = kwargs["ticks_swing"]
             phi_stance = np.linspace(0, np.pi, ticks_stance)
             phi_swing = np.linspace(np.pi, 2 * np.pi, ticks_swing)
+            x_stance = np.linspace(0, kwargs["stance_phase_distance"], ticks_stance)
 
             stance_trajectory = [
                 self._stance_trajectory(
@@ -89,6 +91,12 @@ class WalkTrajectoryController:
         z = z_off + z_btm * np.sin(phi)
         return float(x), float(y), float(z)
 
+    def _stance_up_trajectory(self, phi):
+        x = phi / np.pi
+        y = 0
+        z = np.sin(phi)
+        return float(x), float(y), float(z)
+
     def _swing_trajectory(self, x_off, z_off, x_fore, x_hind, z_top, phi):
         x = np.where(
             (phi > 3 * np.pi / 2),
@@ -107,7 +115,6 @@ class LinearTrajectoryController(TrajectoryController):
 
     def get_next_position(self, tick_index, **kwargs):
         if tick_index < len(self.trajectory):
-            time.sleep(1)
             position_matrix = np.zeros((3, 4))
             x, y, z = self.trajectory[tick_index]
             # change logic to walk trajectory if different positions for legs are needed
@@ -139,3 +146,20 @@ class LinearTrajectoryController(TrajectoryController):
 
     def _linear_trajectory(self, z_traj, z_off):
         return [(0, 0, float(z_off + z)) for z in z_traj]
+
+def _stance_up_trajectory(x_phi, z_phi, x_scale=1.0, z_scale=1.0):
+    x = x_scale * (x_phi / np.pi)
+    y = 0
+    z = z_scale * np.sin(z_phi)
+    return float(x), float(y), float(z)
+
+phi = np.linspace(0, np.pi, 4)
+phi_2 = np.linspace(0, np.pi, 4)
+
+x_scale = 3
+z_scale = 1
+
+b = []
+for phi_i, phi_i_2 in zip(phi, phi_2):
+    b.append(_stance_up_trajectory(phi_i, -phi_i_2, x_scale, z_scale))
+print(b)

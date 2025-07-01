@@ -8,20 +8,20 @@ import time
 
 def main():
     #mh = MotorHandler("/dev/ttyUSB0", 1000000, 1.0)
-    mh = MotorHandler("COM7", 1000000, 1.0)  # Adjust for your platform
-    #imu_controller = IMUController(sample_freq=100.0, beta=0.1)
+    mh = MotorHandler("COM7", 1000000, 1.0)
+    #imu_controller = IMUController(sample_freq=15, beta=0.1)
     imu_controller = None
     config = Config()
 
     # TODO change from hardcoded to params
     # change to args so that i dont need it with balance
-    trajectory_type = TrajectoryType.LINEAR
+    trajectory_type = TrajectoryType.WALK
     movement_type = MovementType.GAIT
 
     sleep_time = config.sleep_time[movement_type]
 
     if not trajectory_type == TrajectoryType.NO_TRAJECTORY:
-        trajectory_controller = LinearTrajectoryController(
+        trajectory_controller = WalkTrajectoryController(
             trajectory_type, config.gait_config.get_default_gait_params()
         )
     gait_controller = GaitController(trajectory_controller, mh, imu_controller, config)

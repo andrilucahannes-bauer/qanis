@@ -68,14 +68,15 @@ class GaitController(Controller):
     def _execute_movement(self, upper_dxl_angle, lower_dxl_angle, inner_dxl_angle, leg):
         self.motor_handler.move_motor(leg.upper_id, upper_dxl_angle)
         self.motor_handler.move_motor(leg.lower_id, lower_dxl_angle)
-        # TODO
-        self.motor_handler.move_motor(leg.inner_id, leg.horizontal_inner)
+        self.motor_handler.move_motor(leg.inner_id, inner_dxl_angle)
 
     def initial_setup(self):
         for leg in self.config.legs:
             for motor_id in [leg.upper_id, leg.lower_id, leg.inner_id]:
                 self.motor_handler.set_speed(motor_id, self.config.default_motor_speed)
                 self.motor_handler.set_torque(motor_id, 1)
+                self.motor_handler.set_slope(motor_id, 128)
+                self.motor_handler.set_margin(motor_id, 1)
 
         positions = self.config.gait_config.default_position
         for pos, leg in zip(positions.T, self.config.legs):
@@ -113,21 +114,20 @@ class BalanceController(Controller):
         reverted_foot_locations = compensated - offset_matrix
 
         for pos, leg in zip(reverted_foot_locations.T, self.config.legs):
-            print(f"pos: {pos}, leg: {leg.name}")
+            #print(f"pos: {pos}, leg: {leg.name}")
             upper_dxl_angle, lower_dxl_angle, inner_dxl_angle = _calculate_movement(
                 pos, leg
             )
-            print(
-                f"upper={upper_dxl_angle}, lower={lower_dxl_angle}, inner={inner_dxl_angle}"
-            )
-            print("-" * 20)
-            # self._execute_movement(upper_dxl_angle, lower_dxl_angle, inner_dxl_angle, leg)
+            #print(
+            #    f"upper={upper_dxl_angle}, lower={lower_dxl_angle}, inner={inner_dxl_angle}"
+            #)
+            #print("-" * 20)
+            self._execute_movement(upper_dxl_angle, lower_dxl_angle, inner_dxl_angle, leg)
 
     def _execute_movement(self, upper_dxl_angle, lower_dxl_angle, inner_dxl_angle, leg):
         self.motor_handler.move_motor(leg.upper_id, upper_dxl_angle)
         self.motor_handler.move_motor(leg.lower_id, lower_dxl_angle)
-        # TODO
-        self.motor_handler.move_motor(leg.inner_id, leg.horizontal_inner)
+        self.motor_handler.move_motor(leg.inner_id, inner_dxl_angle)
 
     def initial_setup(self):
         for leg in self.config.legs:
@@ -160,9 +160,9 @@ def _calculate_movement(pos, leg):
         upper_servo_angle, lower_leg_angle, leg
     )
 
-    print(
-        f"upper_servo_angle: {np.degrees(upper_servo_angle)}, lower_servo_angle: {np.degrees(lower_servo_angle)}, inner_servo_angle: {np.degrees(inner_servo_angle)}"
-    )
+    #print(
+    #    f"upper_servo_angle: {np.degrees(upper_servo_angle)}, lower_servo_angle: {np.degrees(lower_servo_angle)}, inner_servo_angle: {np.degrees(inner_servo_angle)}"
+    #)
 
     if leg.side == LegSide.LEFT:
         upper_dxl_angle = calc_left_upper_angle_to_dxl(leg, upper_servo_angle)

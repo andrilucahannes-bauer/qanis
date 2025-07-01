@@ -43,7 +43,7 @@ class Config:
             upper_id=4,
             lower_id=5,
             inner_id=6,
-            horizontal_inner=193,
+            horizontal_inner=612,
         )
         self.leg_lh = LegDimensions(
             leg_index=2,
@@ -68,10 +68,10 @@ class Config:
 
         self.legs = [self.leg_lf, self.leg_rf, self.leg_lh, self.leg_rh]
 
-        self.default_motor_speed = 200
+        self.default_motor_speed = 400
 
         self.gait_config = GaitConfig()
-        self.sleep_time = {MovementType.GAIT: 0, MovementType.BALANCE: 0.01}
+        self.sleep_time = {MovementType.GAIT: 0.01, MovementType.BALANCE: 0.02}
         self.balance_config = BalanceConfig()
 
 
@@ -115,10 +115,10 @@ class LegDimensions:
         )
         self.left_lower_leg_angle_offset = 150  # 662 (our horizontal) - 512 (dxl horizontal)
         self.right_lower_leg_angle_offset = 43  # 555 (our horizontal) - 512 (dxl horizontal)
-        self.ABC_max = 2.13  # 122°
-        self.ABC_min = 0.77  # 44°
-        self.EFG_max = 2.77  # 159° changed from 2.77
-        self.EFG_min = 0.52  # 30°
+        self.th2_max = 2.38  # 136°
+        self.th2_min = 0.96  # 55°
+        self.EFG_max = 2.95  # 169° - bad torque conversion
+        self.EFG_min = 0.70  # 40°
 
         self.motor_angle = 0.885  # 50.7°, angle between horizontal and the axis on which the servos are aligned
         self.c_e_offset = 1.745  # 100°, bell crank angle
@@ -138,12 +138,12 @@ class GaitConfig:
     def __init__(self):
         self.x_off = 0.0
         self.z_off = 16.0
+        self.x_off_front = 0.0
+        self.x_off_hind = 3
         self.x_fore = 2.0
         self.x_hind = 2.0
-        self.z_top = 2
-        self.z_btm = 1
-        self.x_off_front = 0.0
-        self.x_off_hind = 1.0
+        self.z_top = 4.0
+        self.z_btm = 0.0
 
         # distance for linear motion
         self.distance = 0.0
@@ -151,15 +151,18 @@ class GaitConfig:
 
 
         # Number of ticks for trajectory generation. NOTE LINEAR must be even, WALK must be divisible by 4
-        self.total_ticks = {TrajectoryType.WALK: 16, TrajectoryType.LINEAR: 2}
+        self.total_ticks = {TrajectoryType.WALK: 8, TrajectoryType.LINEAR: 2}
 
-        self.ticks_stance = int(self.total_ticks[TrajectoryType.WALK] * (6/8))
-        self.ticks_swing = int(self.total_ticks[TrajectoryType.WALK] *  (2/8))
+        self.ticks_stance = int(self.total_ticks[TrajectoryType.WALK] * (4/8))
+        self.ticks_swing = int(self.total_ticks[TrajectoryType.WALK] *  (4/8))
         self.ticks_linear = int(self.total_ticks[TrajectoryType.LINEAR])
 
+        self.stance_phase_distance = 1.0
+
         # phase offset for walk gait
-        self.phase_offset = int(self.total_ticks[TrajectoryType.WALK] *  (1/4))
-        self.leg_movement_order = [1,3,0,2]  # Order of leg movements in the gait cycle (0-indexed)
+        self.phase_offset = int(self.total_ticks[TrajectoryType.WALK] *  (4/8))
+        # self.leg_movement_order = [1,3,0,2]  # walk
+        self.leg_movement_order = [0, 1, 3, 2]
 
         self.current_tick = 0
 
@@ -170,16 +173,16 @@ class GaitConfig:
             [
                 [0, 0, 0, 0],                                       # x
                 [0, 0, 0, 0],                                       # y
-                [self.z_off, self.z_off, self.z_off, self.z_off],   # z
+                [15.0, 15.0, 15.0, 15.0],                           # z
             ]
         )
 
     def get_default_gait_params(self):
         return {
             "x_off": self.x_off,
+            "z_off": self.z_off,
             "x_off_front": self.x_off_front,
             "x_off_hind": self.x_off_hind,
-            "z_off": self.z_off,
             "x_fore": self.x_fore,
             "x_hind": self.x_hind,
             "z_top": self.z_top,
@@ -193,9 +196,9 @@ class GaitConfig:
 class BalanceConfig:
     def __init__(self):
         self.x_off = 0.0
-        self.z_off = 17.0
+        self.z_off = 15.0
         self.x_off_front = 0.0
-        self.x_off_hind = 3.0
+        self.x_off_hind = 0.0
 
         self.correction_factor = 0.8
         self.max_tilt = 0.4

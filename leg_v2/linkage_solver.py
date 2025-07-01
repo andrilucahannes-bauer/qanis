@@ -48,8 +48,8 @@ def lower_leg_angle_to_servo_angle(th1, th2, leg): #c_e_offset, motor_angle, a, 
     DEF, EFG, FGD = _calculate_4_bar(th2_new, leg.e, leg.f, leg.g, leg.h)
 
     # check if angles are within bounds
-    if ABC > leg.ABC_max or ABC < leg.ABC_min:
-        raise ValueError(f"ABC angle {ABC} out of bounds: [{leg.ABC_min}, {leg.ABC_max}]")
+    if th2 > leg.th2_max or th2 < leg.th2_min:
+        raise ValueError(f"th2 angle {th2} out of bounds: [{leg.th2_min}, {leg.th2_max}]")
     if EFG > leg.EFG_max or EFG < leg.EFG_min:
         raise ValueError(f"EFG angle {EFG} out of bounds: [{leg.EFG_min}, {leg.EFG_max}]")
     
