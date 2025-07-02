@@ -21,6 +21,7 @@ class RobotMode(Enum):
     TURN_LEFT = "turn_left"
     TURN_RIGHT = "turn_right"
     EXCITED = "excited"
+    JUMP = "jump"
 
 class RobotController:
     def __init__(self, motor_handler, imu_controller, config):
@@ -82,6 +83,9 @@ class RobotController:
         )
         self.controllers[RobotMode.TURN_RIGHT] = TurnController(
             self.motor_handler, self.config, "right"
+        )
+        self.controllers[RobotMode.JUMP] = JumpController(
+            self.motor_handler, self.config
         )
     
     def set_mode(self, mode: RobotMode):
@@ -349,6 +353,60 @@ class UpController(Controller):
         self.motor_handler.move_motor(leg.lower_id, lower_dxl_angle)
         self.motor_handler.move_motor(leg.inner_id, inner_dxl_angle)
 
+class JumpController(Controller):
+    def __init__(self, motor_handler, config):
+        self.motor_handler = motor_handler
+        self.config = config
+        self.sit_positions_set = False
+    
+    def tick(self):
+        if not self.sit_positions_set:
+            print("🪑 Moving to down position...")
+            # Add your sitting logic here
+            # For now, just hold position
+            self.sit_positions_set = True
+        # In sit mode, we just maintain position, so minimal processing needed
+        pass
+    
+    def initial_setup(self):
+        print("🪑 Preparing to lay down...")
+        # Set up motors for sitting
+        for leg in self.config.legs:
+            for motor_id in [leg.upper_id, leg.lower_id, leg.inner_id]:
+                self.motor_handler.set_speed(motor_id, self.config.default_motor_speed // 2)  # Slower for sitting
+                self.motor_handler.set_torque(motor_id, 1)
+        
+        # Define sitting positions (you'll need to adjust these values)
+        # This is a placeholder - adjust based on your robot's dimensions
+        sit_positions = self.config.gait_config.default_position.copy()
+        sit_positions[2, :] -= 6  # Lower the robot by 5 units
+        
+        for pos, leg in zip(sit_positions.T, self.config.legs):
+            upper_dxl_angle, lower_dxl_angle, inner_dxl_angle = _calculate_movement(pos, leg)
+            self._execute_movement(upper_dxl_angle, lower_dxl_angle, inner_dxl_angle, leg)
+        
+        time.sleep(1)
+
+        for leg in self.config.legs:
+            for motor_id in [leg.upper_id, leg.lower_id, leg.inner_id]:
+                self.motor_handler.set_speed(motor_id, self.config.default_motor_speed * 2)
+                self.motor_handler.set_torque(motor_id, 1)
+        
+        # Move to standing position (default position)
+        positions = self.config.gait_config.default_position
+        for pos, leg in zip(positions.T, self.config.legs):
+            upper_dxl_angle, lower_dxl_angle, inner_dxl_angle = _calculate_movement(pos, leg)
+            self._execute_movement(upper_dxl_angle, lower_dxl_angle, inner_dxl_angle, leg)
+        
+        time.sleep(1)
+        self.sit_positions_set = False
+    
+    def _execute_movement(self, upper_dxl_angle, lower_dxl_angle, inner_dxl_angle, leg):
+        self.motor_handler.move_motor(leg.upper_id, upper_dxl_angle)
+        self.motor_handler.move_motor(leg.lower_id, lower_dxl_angle)
+        self.motor_handler.move_motor(leg.inner_id, inner_dxl_angle)
+
+
 
 class TurnController(Controller):
     def __init__(self, motor_handler, config, turn_direction="left"):
@@ -428,6 +486,7 @@ def main():
         't': create_mode_action(RobotMode.TWERK),
         'd': create_mode_action(RobotMode.DOWN),
         'e': create_mode_action(RobotMode.EXCITED),
+        'j': create_mode_action(RobotMode.JUMP),
         'q': robot_controller.emergency_stop,
     }
 
