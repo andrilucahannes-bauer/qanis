@@ -6,7 +6,6 @@ from controller import BalanceController, Controller, GaitController, TwerkContr
 from config import Config, MovementType, TrajectoryType, LegSide
 from motor_handler import MotorHandler
 from trajectory_controller import TwerkTrajectoryController, WalkTrajectoryController
-from pynput import keyboard
 import numpy as np
 
 class RobotMode(Enum):
@@ -402,82 +401,111 @@ class TurnController(Controller):
         
         print(f"✅ Simple turn {self.turn_direction} ready")
 
-# Updated main function
+def terminal_input_handler(robot_controller):
+    """Handle terminal command input in a separate thread"""
+    print("\n" + "="*60)
+    print("🤖 ROBOT CONTROLLER - Terminal Command Mode")
+    print("="*60)
+    print("Available commands:")
+    print("  walk, w       - Walk mode")
+    print("  balance, b    - Balance mode") 
+    print("  sit, s        - Sit mode")
+    print("  up, u         - Stand up")
+    print("  idle, i       - Idle mode")
+    print("  twerk, t      - Twerk mode")
+    print("  down, d       - Down mode")
+    print("  excited, e    - Excited mode")
+    print("  left, l       - Turn left")
+    print("  right, r      - Turn right")
+    print("  stop, q       - Emergency stop")
+    print("  help, h       - Show this help")
+    print("  exit          - Exit program")
+    print("="*60)
+    
+    command_map = {
+        'walk': RobotMode.WALK, 'w': RobotMode.WALK,
+        'balance': RobotMode.BALANCE, 'b': RobotMode.BALANCE,
+        'sit': RobotMode.SIT, 's': RobotMode.SIT,
+        'up': RobotMode.UP, 'u': RobotMode.UP,
+        'idle': RobotMode.IDLE, 'i': RobotMode.IDLE,
+        'twerk': RobotMode.TWERK, 't': RobotMode.TWERK,
+        'down': RobotMode.DOWN, 'd': RobotMode.DOWN,
+        'excited': RobotMode.EXCITED, 'e': RobotMode.EXCITED,
+        'left': RobotMode.TURN_LEFT, 'l': RobotMode.TURN_LEFT,
+        'right': RobotMode.TURN_RIGHT, 'r': RobotMode.TURN_RIGHT,
+    }
+    
+    while robot_controller.running:
+        try:
+            command = input("🤖 Enter command: ").strip().lower()
+            
+            if command in ['exit', 'quit']:
+                print("🛑 Exiting...")
+                robot_controller.emergency_stop()
+                break
+            elif command in ['stop', 'q']:
+                print("🚨 Emergency stop activated!")
+                robot_controller.emergency_stop()
+                break
+            elif command in ['help', 'h']:
+                print("\n📋 Available commands:")
+                print("  Movement modes:")
+                for cmd, mode in command_map.items():
+                    if len(cmd) > 1:  # Only show full names
+                        print(f"    {cmd:<12} - {mode.value.replace('_', ' ').title()}")
+                print("  Control:")
+                print("    stop, q      - Emergency stop")
+                print("    help, h      - Show this help")  
+                print("    exit         - Exit program")
+                print("  💡 Tip: You can use single letters too (w, b, s, etc.)")
+                continue
+            elif command in command_map:
+                mode = command_map[command]
+                robot_controller.set_mode(mode)
+                print(f"✅ Mode set to: {mode.value.replace('_', ' ').title()}")
+            elif command == "":
+                # Empty command, just continue
+                continue
+            else:
+                print(f"❌ Unknown command: '{command}'")
+                print("💡 Type 'help' to see available commands")
+                
+        except (EOFError, KeyboardInterrupt):
+            print("\n🛑 Keyboard interrupt - stopping robot...")
+            robot_controller.emergency_stop()
+            break
+        except Exception as e:
+            print(f"❌ Error processing command: {e}")
+            print("💡 Type 'help' for available commands")
+
 def main():
-    mh = MotorHandler("COM7", 1000000, 1.0)
+    mh = MotorHandler("/dev/ttyUSB0", 1000000, 1.0)
     imu_controller = None  # IMUController(sample_freq=15, beta=0.1)
     config = Config()
     
     # Create robot controller
     robot_controller = RobotController(mh, imu_controller, config)
     
-    # Set up keyboard controls
-    def create_mode_action(mode: RobotMode):
-        def action():
-            robot_controller.set_mode(mode)
-        return action
+    print("🤖 Robot Controller Starting...")
+    print("📟 Terminal command mode enabled")
     
-    # Define key mappings
-    key_actions = {
-        'w': create_mode_action(RobotMode.WALK),
-        'b': create_mode_action(RobotMode.BALANCE), 
-        's': create_mode_action(RobotMode.SIT),
-        'u': create_mode_action(RobotMode.UP),
-        'i': create_mode_action(RobotMode.IDLE),
-        't': create_mode_action(RobotMode.TWERK),
-        'd': create_mode_action(RobotMode.DOWN),
-        'e': create_mode_action(RobotMode.EXCITED),
-        'q': robot_controller.emergency_stop,
-    }
-
-    special_key_actions = {
-        keyboard.Key.left: create_mode_action(RobotMode.TURN_LEFT),
-        keyboard.Key.right: create_mode_action(RobotMode.TURN_RIGHT),
-        keyboard.Key.esc: robot_controller.emergency_stop,
-    }
-    
-    def on_press(key):
-        try:
-            k = key.char
-        except AttributeError:
-            action = special_key_actions.get(key)
-            if action:
-                action()
-                print(f"Special key '{key}' pressed")
-            if key == keyboard.Key.esc:
-                robot_controller.emergency_stop()
-                return False
-            return
-        
-        action = key_actions.get(k)
-        if action:
-            action()
-            print(f"Key '{k}' pressed")
-    
-    # Set up keyboard listener in a separate thread
-    listener = keyboard.Listener(on_press=on_press)
-    listener.start()
-    
-    print("🤖 Robot Controller Started!")
-    print("Controls:")
-    print("  W - Walk")
-    print("  B - Balance") 
-    print("  S - Sit")
-    print("  R - Stand")
-    print("  I - Idle")
-    print("  Q - Emergency Stop")
-    print("  ESC - Exit")
-    print("\nRobot is ready! Press keys to control...")
+    # Start terminal input handler in separate thread
+    input_thread = threading.Thread(
+        target=terminal_input_handler,
+        args=(robot_controller,),
+        daemon=True
+    )
+    input_thread.start()
     
     try:
         # Run the control loop in the main thread
         robot_controller.start_control_loop()
     except KeyboardInterrupt:
-        print("❌ Interrupted by user")
+        print("\n❌ Interrupted by user")
     finally:
         print("🧹 Cleaning up...")
         robot_controller.emergency_stop()
-        listener.stop()
+        print("✅ Cleanup complete")
 
 if __name__ == "__main__":
     main()
