@@ -13,9 +13,11 @@ class TrajectoryType(Enum):
     WALK = ("walk",)
     TROT = ("trot",)
 
+
 class LegSide(Enum):
     LEFT = "left"
     RIGHT = "right"
+
 
 class LegOrientation(Enum):
     FRONT = "front"
@@ -68,11 +70,12 @@ class Config:
 
         self.legs = [self.leg_lf, self.leg_rf, self.leg_lh, self.leg_rh]
 
-        self.default_motor_speed = 400
+        self.default_motor_speed = 200
 
         self.gait_config = GaitConfig()
-        self.sleep_time = {MovementType.GAIT: 0.01, MovementType.BALANCE: 0.02}
+        self.sleep_time = {MovementType.GAIT: 0.02, MovementType.BALANCE: 0.02}
         self.balance_config = BalanceConfig()
+        self.twerk_config = TwerkConfig()
 
 
 class LegDimensions:
@@ -113,10 +116,14 @@ class LegDimensions:
         self.dxl_starting_position_offset = (
             71  # 20.7° (50.7° motor angle - 30° dxl starting angle)
         )
-        self.left_lower_leg_angle_offset = 150  # 662 (our horizontal) - 512 (dxl horizontal)
-        self.right_lower_leg_angle_offset = 43  # 555 (our horizontal) - 512 (dxl horizontal)
+        self.left_lower_leg_angle_offset = (
+            150  # 662 (our horizontal) - 512 (dxl horizontal)
+        )
+        self.right_lower_leg_angle_offset = (
+            43  # 555 (our horizontal) - 512 (dxl horizontal)
+        )
         self.th2_max = 2.38  # 136°
-        self.th2_min = 0.96  # 55°
+        self.th2_min = 0.75  # 55°
         self.EFG_max = 2.95  # 169° - bad torque conversion
         self.EFG_min = 0.70  # 40°
 
@@ -133,11 +140,14 @@ class LegDimensions:
         self.g = 3.5
         self.h = 4.264
 
+class TwerkConfig:
+    def __init__(self):
+        self.motor_speed = 60
 
 class GaitConfig:
     def __init__(self):
         self.x_off = 0.0
-        self.z_off = 16.0
+        self.z_off = 12.0
         self.x_off_front = 0.0
         self.x_off_hind = 3
         self.x_fore = 2.0
@@ -146,23 +156,33 @@ class GaitConfig:
         self.z_btm = 0.0
 
         # distance for linear motion
-        self.distance = 0.0
-
-
+        self.distance = 4.0
 
         # Number of ticks for trajectory generation. NOTE LINEAR must be even, WALK must be divisible by 4
-        self.total_ticks = {TrajectoryType.WALK: 8, TrajectoryType.LINEAR: 2}
+        self.total_ticks = {TrajectoryType.WALK: 12, TrajectoryType.LINEAR: 2}
 
-        self.ticks_stance = int(self.total_ticks[TrajectoryType.WALK] * (4/8))
-        self.ticks_swing = int(self.total_ticks[TrajectoryType.WALK] *  (4/8))
+        self.ticks_stance = int(self.total_ticks[TrajectoryType.WALK] * (4 / 8))
+        self.ticks_swing = int(self.total_ticks[TrajectoryType.WALK] * (4 / 8))
         self.ticks_linear = int(self.total_ticks[TrajectoryType.LINEAR])
 
         self.stance_phase_distance = 1.0
 
         # phase offset for walk gait
-        self.phase_offset = int(self.total_ticks[TrajectoryType.WALK] *  (4/8))
+        self.phase_offset = int(self.total_ticks[TrajectoryType.WALK] * (4 / 8))
         # self.leg_movement_order = [1,3,0,2]  # walk
         self.leg_movement_order = [0, 1, 3, 2]
+
+        self.ticks_per_phase = 4
+        self.phase_distance = -2
+        self.stance_height_down = 0
+        self.stance_height_up = 4
+        self.swing_height_up = 3
+        self.legs_phase_order = [
+            [2, 1, 0, 2],
+            [0, 2, 2, 1],
+            [1, 2, 2, 0],
+            [2, 0, 1, 2],
+        ]
 
         self.current_tick = 0
 
@@ -171,9 +191,9 @@ class GaitConfig:
         # leg order = config.legs
         self.default_position = np.array(
             [
-                [0, 0, 0, 0],                                       # x
-                [0, 0, 0, 0],                                       # y
-                [15.0, 15.0, 15.0, 15.0],                           # z
+                [-2, -2, 2, 2],  # x
+                [0, 0, 0, 0],  # y
+                [17.0, 17.0, 17.0, 17.0],  # z
             ]
         )
 
@@ -191,7 +211,14 @@ class GaitConfig:
             "linear_ticks": self.ticks_linear,
             "ticks_stance": self.ticks_stance,
             "ticks_swing": self.ticks_swing,
+            "ticks_per_phase": self.ticks_per_phase,
+            "phase_distance": self.phase_distance,
+            "stance_height_down": self.stance_height_down,
+            "stance_height_up": self.stance_height_up,
+            "swing_height_up": self.swing_height_up,
+            "all_legs_phase_order": self.legs_phase_order,
         }
+
 
 class BalanceConfig:
     def __init__(self):
@@ -202,16 +229,18 @@ class BalanceConfig:
 
         self.correction_factor = 0.8
         self.max_tilt = 0.4
-        self.offset_matrix = np.array([
-            [9.5,   9.5,    -12.3,  -12.3],     # x offsets
-            [12.2,  -12.2,  12.2,   -12.2],     # y offsets
-            [0,     0,      0,      0]          # z offsets
-        ])
+        self.offset_matrix = np.array(
+            [
+                [9.5, 9.5, -12.3, -12.3],  # x offsets
+                [12.2, -12.2, 12.2, -12.2],  # y offsets
+                [0, 0, 0, 0],  # z offsets
+            ]
+        )
 
         self.default_position = np.array(
             [
-                [0, 0, 0, 0],                                       # x
-                [0, 0, 0, 0],                                       # y
-                [self.z_off, self.z_off, self.z_off, self.z_off],   # z
+                [0, 0, 0, 0],  # x
+                [0, 0, 0, 0],  # y
+                [self.z_off, self.z_off, self.z_off, self.z_off],  # z
             ]
         )

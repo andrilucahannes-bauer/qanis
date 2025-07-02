@@ -17,98 +17,93 @@ class TrajectoryController(ABC):
 class WalkTrajectoryController:
     def __init__(self, trajectory_type, params):
         self.trajectory_type = trajectory_type
-        self.generate_trajectory(**params)
+        self.trajectory = self.generate_trajectory(**params)
 
-    def get_next_position(self, index, **kwargs):
+    def get_next_position(self, index):
         if index < len(self.trajectory):
-            position_matrix = np.zeros((3, 4))
-            leg_movement_order = kwargs["leg_movement_order"]
-            phase_offset = kwargs["gait_phase_offset"]
+            return self.trajectory[index]
 
-            for i, leg_index in enumerate(leg_movement_order):
-                x, y, z = self.trajectory[
-                    (index + (i * phase_offset)) % len(self.trajectory)
-                ]
-                # TODO change to individual leg
-                leg_orientation_x_offset = (
-                    kwargs.get("x_off_front", 0)
-                    if leg_index < 2
-                    else kwargs.get("x_off_hind", 0)
-                )
-                position_matrix[0, leg_index] = x + leg_orientation_x_offset
-                position_matrix[1, leg_index] = y  # optional add offset
-                position_matrix[2, leg_index] = z
-            return position_matrix
         else:
             raise IndexError("Index out of bounds for trajectory")
 
     def generate_trajectory(self, **kwargs):
-
         try:
-            ticks_stance = kwargs["ticks_stance"]
-            ticks_swing = kwargs["ticks_swing"]
-            phi_stance = np.linspace(0, np.pi, ticks_stance)
-            phi_swing = np.linspace(np.pi, 2 * np.pi, ticks_swing)
-            x_stance = np.linspace(0, kwargs["stance_phase_distance"], ticks_stance)
+            ticks_per_phase = kwargs["ticks_per_phase"]
+            phase_distance = kwargs["phase_distance"]
+            stance_height_down = kwargs["stance_height_down"]
+            stance_height_up = kwargs["stance_height_up"]
+            swing_height_up = kwargs["swing_height_up"]
+            all_legs_phase_order = kwargs["all_legs_phase_order"]
 
-            stance_trajectory = [
-                self._stance_trajectory(
-                    kwargs["x_off"],
-                    kwargs["z_off"],
-                    kwargs["x_fore"],
-                    kwargs["x_hind"],
-                    kwargs["z_btm"],
-                    phi_i,
-                )
-                for phi_i in phi_stance
-            ]
-            swing_trajectory = [
-                self._swing_trajectory(
-                    kwargs["x_off"],
-                    kwargs["z_off"],
-                    kwargs["x_fore"],
-                    kwargs["x_hind"],
-                    kwargs["z_top"],
-                    phi_i,
-                )
-                for phi_i in phi_swing
-            ]
+            phi = np.linspace(0, np.pi, ticks_per_phase)
 
-            self.trajectory = stance_trajectory + swing_trajectory
+            stance_down = self._stance_trajectory(
+                -phi, phi, -phase_distance, stance_height_down
+            )
+            stance_up = self._stance_trajectory(
+                phi, -phi, phase_distance, stance_height_up
+            )
+            swing = self._stance_trajectory(
+                -phi, -phi, 3 * phase_distance, swing_height_up
+            )
+
+            # Build trajectory for each leg
+            leg_trajectories = []
+            for leg_order in all_legs_phase_order:
+                leg_trajectory = []
+                cumulative_x = 0
+                
+                for phase in leg_order:
+                    if phase == 0:  # swing
+                        # Create copy and apply offset
+                        swing_segment = np.array(swing[:-1])
+                        swing_segment[:, 0] += cumulative_x  # Add to x-coordinate
+                        leg_trajectory.extend(swing_segment.tolist())
+                        cumulative_x -= 3 * phase_distance
+                        
+                    elif phase == 1:  # stance_up
+                        stance_up_segment = np.array(stance_up[:-1])
+                        stance_up_segment[:, 0] += cumulative_x
+                        leg_trajectory.extend(stance_up_segment.tolist())
+                        cumulative_x += phase_distance
+                        
+                    else:  # stance_down
+                        stance_down_segment = np.array(stance_down[:-1])
+                        stance_down_segment[:, 0] += cumulative_x
+                        leg_trajectory.extend(stance_down_segment.tolist())
+                        cumulative_x += phase_distance
+                
+                leg_trajectories.append(leg_trajectory)
+
+            # Convert to desired output format (N, 3, 4)
+            N = len(leg_trajectories[0])  # Should be ticks_per_phase * 4 - 3
+            ges_positions = np.zeros((N, 3, 4))
+
+            for i in range(N):
+                for leg_idx in range(4):  # 4 legs: lf, rf, lh, rh
+                    ges_positions[i, :, leg_idx] = leg_trajectories[leg_idx][i]
+            ges_positions[:, 2, :] += 16
+            ges_positions[:, 1, :] -= 1
+            #ges_positions[:,0, [0,1]] += 2
+            #ges_positions[:,0, [2,3]] -= 2
+            return ges_positions[::-1]
 
         except KeyError as e:
             raise KeyError(f"Missing required parameter: {e}")
         except Exception as e:
             raise RuntimeError(f"Error generating trajectory: {e}")
 
-    def _stance_trajectory(self, x_off, z_off, x_fore, x_hind, z_btm, phi):
-        x = np.where(
-            (phi > np.pi / 2),
-            x_off - x_fore * np.cos(phi),
-            x_off - x_hind * np.cos(phi),
-        )
-        y = 0  # TODO
-        z = z_off + z_btm * np.sin(phi)
-        return float(x), float(y), float(z)
-
-    def _stance_up_trajectory(self, phi):
-        x = phi / np.pi
-        y = 0
-        z = np.sin(phi)
-        return float(x), float(y), float(z)
-
-    def _swing_trajectory(self, x_off, z_off, x_fore, x_hind, z_top, phi):
-        x = np.where(
-            (phi > 3 * np.pi / 2),
-            x_off - x_fore * np.cos(phi),
-            x_off - x_hind * np.cos(phi),
-        )
-        y = 0  # TODO
-        z = z_off + z_top * np.sin(phi)
-        return float(x), float(y), float(z)
+    def _stance_trajectory(self, phi_x, phi_z, x_scale=1.0, z_scale=1.0):
+        traj = []
+        for phi_x_i, phi_z_i in zip(phi_x, phi_z):
+            x = x_scale * (phi_x_i / np.pi)
+            y = 0
+            z = z_scale * np.sin(phi_z_i)
+            traj.append([float(x), float(y), float(z)])
+        return traj
 
 
-class LinearTrajectoryController(TrajectoryController):
+class TwerkTrajectoryController(TrajectoryController):
     def __init__(self, trajectory_type, params):
         self.trajectory_type = trajectory_type
         self.generate_trajectory(**params)
@@ -146,20 +141,3 @@ class LinearTrajectoryController(TrajectoryController):
 
     def _linear_trajectory(self, z_traj, z_off):
         return [(0, 0, float(z_off + z)) for z in z_traj]
-
-def _stance_up_trajectory(x_phi, z_phi, x_scale=1.0, z_scale=1.0):
-    x = x_scale * (x_phi / np.pi)
-    y = 0
-    z = z_scale * np.sin(z_phi)
-    return float(x), float(y), float(z)
-
-phi = np.linspace(0, np.pi, 4)
-phi_2 = np.linspace(0, np.pi, 4)
-
-x_scale = 3
-z_scale = 1
-
-b = []
-for phi_i, phi_i_2 in zip(phi, phi_2):
-    b.append(_stance_up_trajectory(phi_i, -phi_i_2, x_scale, z_scale))
-print(b)

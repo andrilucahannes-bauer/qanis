@@ -44,13 +44,13 @@ class GaitController(Controller):
             current_tick = self.config.gait_config.current_tick = 0
 
         kwargs = self.config.gait_config.get_default_gait_params()
-        if self.trajectory_controller.trajectory_type == TrajectoryType.WALK:    
+        if self.trajectory_controller.trajectory_type == TrajectoryType.WALK:
             kwargs["gait_phase_offset"] = self.config.gait_config.phase_offset
             kwargs["leg_movement_order"] = self.config.gait_config.leg_movement_order
 
-        leg_positions = self.trajectory_controller.get_next_position(
-            current_tick, **kwargs
-        )
+        leg_positions = self.trajectory_controller.get_next_position(current_tick)
+
+        print(leg_positions)
 
         # NOTE not used yet
         self.config.gait_config.leg_positions = leg_positions
@@ -75,8 +75,8 @@ class GaitController(Controller):
             for motor_id in [leg.upper_id, leg.lower_id, leg.inner_id]:
                 self.motor_handler.set_speed(motor_id, self.config.default_motor_speed)
                 self.motor_handler.set_torque(motor_id, 1)
-                self.motor_handler.set_slope(motor_id, 128)
-                self.motor_handler.set_margin(motor_id, 1)
+                self.motor_handler.set_slope(motor_id, 64)
+                self.motor_handler.set_margin(motor_id, 0)
 
         positions = self.config.gait_config.default_position
         for pos, leg in zip(positions.T, self.config.legs):
@@ -86,7 +86,7 @@ class GaitController(Controller):
             self._execute_movement(
                 upper_dxl_angle, lower_dxl_angle, inner_dxl_angle, leg
             )
-            time.sleep(1)
+            
         time.sleep(1)
 
 
@@ -114,15 +114,17 @@ class BalanceController(Controller):
         reverted_foot_locations = compensated - offset_matrix
 
         for pos, leg in zip(reverted_foot_locations.T, self.config.legs):
-            #print(f"pos: {pos}, leg: {leg.name}")
+            # print(f"pos: {pos}, leg: {leg.name}")
             upper_dxl_angle, lower_dxl_angle, inner_dxl_angle = _calculate_movement(
                 pos, leg
             )
-            #print(
+            # print(
             #    f"upper={upper_dxl_angle}, lower={lower_dxl_angle}, inner={inner_dxl_angle}"
-            #)
-            #print("-" * 20)
-            self._execute_movement(upper_dxl_angle, lower_dxl_angle, inner_dxl_angle, leg)
+            # )
+            # print("-" * 20)
+            self._execute_movement(
+                upper_dxl_angle, lower_dxl_angle, inner_dxl_angle, leg
+            )
 
     def _execute_movement(self, upper_dxl_angle, lower_dxl_angle, inner_dxl_angle, leg):
         self.motor_handler.move_motor(leg.upper_id, upper_dxl_angle)
@@ -160,9 +162,9 @@ def _calculate_movement(pos, leg):
         upper_servo_angle, lower_leg_angle, leg
     )
 
-    #print(
+    # print(
     #    f"upper_servo_angle: {np.degrees(upper_servo_angle)}, lower_servo_angle: {np.degrees(lower_servo_angle)}, inner_servo_angle: {np.degrees(inner_servo_angle)}"
-    #)
+    # )
 
     if leg.side == LegSide.LEFT:
         upper_dxl_angle = calc_left_upper_angle_to_dxl(leg, upper_servo_angle)
@@ -182,3 +184,68 @@ def _calculate_movement(pos, leg):
             inner_dxl_angle = calc_lf_rh_inner_angle_to_dxl(leg, inner_servo_angle)
 
     return upper_dxl_angle, lower_dxl_angle, inner_dxl_angle
+
+
+class TwerkController(Controller):
+    def __init__(self, trajectory_controller, motor_handler, imu_controller, config):
+        self.trajectory_controller = trajectory_controller
+        self.motor_handler = motor_handler
+        self.imu_controller = imu_controller
+        self.config = config
+
+    def tick(self):
+        if (
+            self.config.gait_config.current_tick
+            < self.config.gait_config.total_ticks[
+                self.trajectory_controller.trajectory_type
+            ]
+        ):
+            current_tick = self.config.gait_config.current_tick
+        else:
+            current_tick = self.config.gait_config.current_tick = 0
+
+        kwargs = self.config.gait_config.get_default_gait_params()
+        if self.trajectory_controller.trajectory_type == TrajectoryType.WALK:
+            kwargs["gait_phase_offset"] = self.config.gait_config.phase_offset
+            kwargs["leg_movement_order"] = self.config.gait_config.leg_movement_order
+
+        leg_positions = self.trajectory_controller.get_next_position(current_tick)
+
+        print(leg_positions)
+
+        # NOTE not used yet
+        self.config.gait_config.leg_positions = leg_positions
+
+        for pos, leg in zip(leg_positions.T, self.config.legs):
+            upper_dxl_angle, lower_dxl_angle, inner_dxl_angle = _calculate_movement(
+                pos, leg
+            )
+            self._execute_movement(
+                upper_dxl_angle, lower_dxl_angle, inner_dxl_angle, leg
+            )
+
+        self.config.gait_config.current_tick += 1
+
+    def _execute_movement(self, upper_dxl_angle, lower_dxl_angle, inner_dxl_angle, leg):
+        self.motor_handler.move_motor(leg.upper_id, upper_dxl_angle)
+        self.motor_handler.move_motor(leg.lower_id, lower_dxl_angle)
+        self.motor_handler.move_motor(leg.inner_id, inner_dxl_angle)
+
+    def initial_setup(self):
+        for leg in self.config.legs:
+            for motor_id in [leg.upper_id, leg.lower_id, leg.inner_id]:
+                self.motor_handler.set_speed(motor_id, self.config.twerk_config.motor_speed)
+                self.motor_handler.set_torque(motor_id, 1)
+                self.motor_handler.set_slope(motor_id, 64)
+                self.motor_handler.set_margin(motor_id, 0)
+
+        positions = self.config.gait_config.default_position
+        for pos, leg in zip(positions.T, self.config.legs):
+            upper_dxl_angle, lower_dxl_angle, inner_dxl_angle = _calculate_movement(
+                pos, leg
+            )
+            self._execute_movement(
+                upper_dxl_angle, lower_dxl_angle, inner_dxl_angle, leg
+            )
+            
+        time.sleep(1)

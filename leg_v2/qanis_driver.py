@@ -1,15 +1,17 @@
 from motor_handler import MotorHandler
 from imu_controller import IMUController
 from config import Config, TrajectoryType, MovementType
-from trajectory_controller import WalkTrajectoryController, LinearTrajectoryController
+from trajectory_controller import WalkTrajectoryController, TwerkTrajectoryController
 from controller import Controller, GaitController, BalanceController
+from pynput import keyboard
+import sys
 import time
 
 
 def main():
-    #mh = MotorHandler("/dev/ttyUSB0", 1000000, 1.0)
+    # mh = MotorHandler("/dev/ttyUSB0", 1000000, 1.0)
     mh = MotorHandler("COM7", 1000000, 1.0)
-    #imu_controller = IMUController(sample_freq=15, beta=0.1)
+    # imu_controller = IMUController(sample_freq=15, beta=0.1)
     imu_controller = None
     config = Config()
 
@@ -27,8 +29,8 @@ def main():
     gait_controller = GaitController(trajectory_controller, mh, imu_controller, config)
     gait_controller.initial_setup()
 
-    #balance_controller = BalanceController(imu_controller, mh, config)
-    #balance_controller.initial_setup()
+    # balance_controller = BalanceController(imu_controller, mh, config)
+    # balance_controller.initial_setup()
 
     try:
         while True:
@@ -48,7 +50,48 @@ def main():
             ]
         )
 
+# tmp funktion um actions in key_action abzubilden
+def print_key(k):
+    def action():
+        print(f"Key {k} pressed")
+    return action
+
+
+# dict welches keys auf roboter funktionen mapped die dann beim keypress aufgerufen werden
+key_actions = {
+    's': print_key("s"),
+    'a': print_key("a")
+}
+
+def on_press(key):
+    try:
+        k = key.char
+    except AttributeError:
+        # Handle special keys (e.g., Key.enter)
+        if key == keyboard.Key.enter:
+            print("Not Stop!")
+            return
+        return
+
+    action = key_actions.get(k)
+    if action:
+        action()
+
+def test_main():
+    listener = keyboard.Listener(on_press=on_press)
+    listener.start()
+    print("Hello, World!")
+
+    try:
+        while True:
+            pass
+    except KeyboardInterrupt:
+        print("\nExiting...")
+        
+        listener.stop()
+        sys.exit(0)
+
 
 if __name__ == "__main__":
     # TODO add params for trajectory type / movement type
-    main()
+    test_main()
